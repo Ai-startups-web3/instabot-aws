@@ -11,3 +11,23 @@
 
 5. generate and copy Access Token
 
+## Downloading video
+### Usage
+
+```
+./youtube_downloader.sh <YouTube-URL> [cookies-file] [output-name]
+```
+1. Basic download:
+```
+./youtube_downloader.sh 'https://youtu.be/example'
+```
+
+2. With cookies file:
+```
+./youtube_downloader.sh 'https://youtu.be/example' cookies.txt
+```
+
+3. Custom output name:
+```
+./youtube_downloader.sh 'https://youtu.be/example' cookies.txt myVideo
+```

@@ -1,29 +1,72 @@
 #!/bin/bash
 
-# Check if yt-dlp is installed
+# Check dependencies
 if ! command -v yt-dlp &> /dev/null; then
-    echo "yt-dlp not found! Installing..."
+    echo "Installing yt-dlp and dependencies..."
+    sudo apt-get update
+    sudo apt-get install -y ffmpeg
     sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp
     sudo chmod a+rx /usr/local/bin/yt-dlp
 fi
 
-# YouTube video URL
-YOUTUBE_URL=$1
-
-# Check if URL is provided
-if [ -z "$YOUTUBE_URL" ]; then
-    echo "Usage: $0 <YouTube-Video-URL>"
+# Check URL
+if [ -z "$1" ]; then
+    echo "Usage: $0 <YouTube-URL> [optional-cookies-file] [optional-output-name]"
+    echo "Example: $0 'https://youtu.be/xyz' cookies.txt myVideo"
     exit 1
 fi
 
-# Download video as videoToPost.mp4
-echo "Downloading video..."
-yt-dlp -f "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]" -o "videoToPost.mp4" "$YOUTUBE_URL"
+# Inputs
+YOUTUBE_URL="$1"
+COOKIES_FILE="${2:-cookies.txt}"                         # default: cookies.txt
+VIDEO_NAME="${3:-videoToPost}"                           # default: videoToPost
+OUTPUT_DIR="insta-bot/assets/input"
+OUTPUT_FILE="$OUTPUT_DIR/${VIDEO_NAME}.mp4"
 
-# Check if download was successful
+# Create output directory if it doesn't exist
+mkdir -p "$OUTPUT_DIR"
+
+# Methods array (each method will be tried in sequence)
+download_methods=()
+
+# Method 1: with cookies (if exists)
+if [ -f "$COOKIES_FILE" ]; then
+    download_methods+=("--cookies $COOKIES_FILE")
+fi
+
+# Method 2: spoofed user-agent and referer
+download_methods+=("--user-agent 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' --referer 'https://www.youtube.com/'")
+
+# Method 3: via Tor (optional)
+# download_methods+=("--proxy socks5://localhost:9050")
+
+# Try each method
+for method in "${download_methods[@]}"; do
+    echo "🔄 Trying download with method: $method"
+    yt-dlp \
+        -f 'bestvideo[height<=1080]+bestaudio/best[height<=1080]' \
+        --merge-output-format mp4 \
+        $method \
+        -o "$OUTPUT_FILE" \
+        "$YOUTUBE_URL"
+
+    if [ $? -eq 0 ]; then
+        echo "✅ Successfully downloaded video as $OUTPUT_FILE"
+        exit 0
+    fi
+done
+
+# Final fallback
+echo "⚠️ All main methods failed. Trying fallback (worst quality)..."
+yt-dlp \
+    -f 'worst' \
+    --merge-output-format mp4 \
+    -o "$OUTPUT_FILE" \
+    "$YOUTUBE_URL"
+
 if [ $? -eq 0 ]; then
-    echo "Download completed! Saved as videoToPost.mp4"
+    echo "✅ Downloaded fallback low quality version: $OUTPUT_FILE"
 else
-    echo "Download failed!"
+    echo "❌ All download attempts failed!"
     exit 1
 fi
