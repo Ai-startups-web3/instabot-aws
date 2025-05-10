@@ -31,23 +31,24 @@ download_methods=()
 
 # Method 1: with cookies (if exists)
 if [ -f "$COOKIES_FILE" ]; then
-    download_methods+=("--cookies $COOKIES_FILE")
+    download_methods+=("--cookies '$COOKIES_FILE'")
 fi
 
-# Method 2: spoofed user-agent and referer
-download_methods+=("--user-agent 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' --referer 'https://www.youtube.com/'")
+# Method 2: standard download
+download_methods+=("")
 
-# Method 3: via Tor (optional)
-# download_methods+=("--proxy socks5://localhost:9050")
+# Method 3: spoofed user-agent and referer
+download_methods+=("--user-agent 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' --referer 'https://www.youtube.com/'")
 
 # Try each method
 for method in "${download_methods[@]}"; do
     echo "🔄 Trying download with method: $method"
-    yt-dlp \
-        -f 'bestvideo[height<=1080]+bestaudio/best[height<=1080]' \
+    eval yt-dlp \
+        -f "'bestvideo[height<=1080]+bestaudio/best[height<=1080]'" \
         --merge-output-format mp4 \
+        --no-playlist \
+        --output "$OUTPUT_FILE" \
         $method \
-        -o "$OUTPUT_FILE" \
         "$YOUTUBE_URL"
 
     if [ $? -eq 0 ]; then
@@ -59,14 +60,27 @@ done
 # Final fallback
 echo "⚠️ All main methods failed. Trying fallback (worst quality)..."
 yt-dlp \
-    -f 'worst' \
+    -f "'worstvideo+worstaudio/worst'" \
     --merge-output-format mp4 \
-    -o "$OUTPUT_FILE" \
+    --no-playlist \
+    --output "$OUTPUT_FILE" \
     "$YOUTUBE_URL"
 
 if [ $? -eq 0 ]; then
     echo "✅ Downloaded fallback low quality version: $OUTPUT_FILE"
 else
     echo "❌ All download attempts failed!"
-    exit 1
+    echo "Trying one last time with default settings..."
+    yt-dlp \
+        --merge-output-format mp4 \
+        --no-playlist \
+        --output "$OUTPUT_FILE" \
+        "$YOUTUBE_URL"
+    
+    if [ $? -eq 0 ]; then
+        echo "✅ Downloaded with default settings: $OUTPUT_FILE"
+    else
+        echo "❌ All download attempts failed!"
+        exit 1
+    fi
 fi
